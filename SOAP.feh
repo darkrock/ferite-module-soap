@@ -1,0 +1,584 @@
+uses 'network';
+uses 'number';
+uses 'reflection';
+uses 'xml';
+uses 'console';
+
+namespace modifies XML {
+	class modifies Element {
+		function elementsByName( string name ) {
+			array list = [];
+			.getChildren().each() using ( child ) {
+				if( child.getElementName() == name ) {
+					list[] = child;
+				}
+			};
+			return list;
+		}
+		function elementByName( string name ) {
+			array list = .elementsByName(name);
+			if( list ) {
+				return list[0];
+			}
+			return null;
+		}
+	}
+}
+
+class modifies Obj {
+	static function attributesExportedToRPC {
+		return [];
+	}
+	
+	directive rpc_export( ... ) {
+		array attributes = [];
+		string classChanges;
+		Array.each(arguments()) using ( attr ) {
+			attributes[] = "'${attr}'";
+		};
+		classChanges += "class modifies ${Class.name(self)} {";
+		classChanges += "	static function attributesExportedToRPC {";
+		classChanges += "		return [ ${attributes.join(',')} ];";
+		classChanges += "	}";
+		classChanges += "	function toSOAP {";
+		classChanges += "		return .toSOAP( [ ${attributes.join(',')} ] );";
+		classChanges += "	}";
+		classChanges +="}";
+		eval(classChanges);
+	}
+	
+	function toSOAP( array attributes ) {
+		object wrapper = new Object(self);
+		string soap;
+		attributes.each() using ( name ) {
+			soap += SOAP.toSOAP( name, wrapper.getVariable(name) );
+		};
+		return soap;
+	}
+	
+	function toSOAP {
+		return .toSOAP([]);
+	}
+	
+}
+
+class RPCObject {
+	array _variables;
+	
+	function attribute_missing( string name ) {
+		return ._variables[name];
+	}
+}
+
+namespace SOAP {
+	function type( string value ) {
+		return 'xsd:string';
+	}
+	function type( number value ) {
+		if( value.isDouble() )
+			return 'xsd:double';
+		return 'xsd:long';
+	}
+	function type( boolean value ) {
+		return 'xsd:boolean';
+	}
+	function type( array value ) {
+		raise new Error('An array cannot contain other arrays.');
+	}
+	function type( object value ) {
+		object wrapper = new Object(value);
+		return wrapper.className();
+	}
+	function toSOAP( string name, string value ) {
+		return "<${name} xsi:type=\"xsd:string\">${value}</${name}>";
+	}
+	function toSOAP( string name, number value ) {
+		string type = 'long';
+		if( value.isDouble() )
+			type = 'double';
+		return "<${name} xsi:type=\"xsd:${type}\">${value}</${name}>";
+	}
+	function toSOAP( string name, boolean value ) {
+		return "<${name} xsi:type=\"xsd:boolean\">${value}</${name}>";
+	}
+	function toSOAP( string name, array value ) {
+		string node;
+		string itemType;
+		if( value ) {
+			string type = SOAP.type(value[0]);
+			itemType = "enc:itemType=\"${type}\"";
+		}
+		node += "<${name} ${itemType} enc:arraySize=\"*\">";
+		value.each() using ( item ) {
+			node += SOAP.toSOAP('item', item);
+		};
+		node += "</${name}>";
+		return node;
+	}
+	function toSOAP( string name, object value ) {
+		if( value ) {
+			object wrapper = new Object(value);
+			return "<${name} xsi:type=\"${wrapper.className()}\">" + value.toSOAP() + "</${name}>";
+		}
+		return "<${name} xsi:nil=\"1\" />";
+	}
+	function toValue( object node ) {
+		string type = (node.hasAttribute('type') ? node.getAttributeByName('type') : '');
+		return .toValue( node, type );
+	}
+	function toValue( object node, string type ) {
+		if( type ) {
+			// Remove namespace prefix
+			type = Regexp.match('^(.*:)?(.*)$', type).capture(1);
+			
+			switch( type ) {
+				case 'boolean': {
+					string value = node.getElementData().toLower();
+					if( value == '1' or value == 'true' )
+						return true;
+					return false;
+				}
+				case 'float':
+				case 'double':
+				case 'decimal':
+				case 'integer':
+				case 'nonPositiveInteger':
+				case 'nonNegativeInteger':
+				case 'negativeInteger':
+				case 'positiveInteger':
+				case 'long':
+				case 'int':
+				case 'short':
+				case 'byte':
+				case 'unsignedLong':
+				case 'unsignedInt':
+				case 'unsignedShort':
+				case 'unsignedByte':
+					return node.getElementData().toNumber();
+				case 'string':
+					return node.getElementData();
+				case 'anyType':
+				case 'anySimpleType':
+				case 'duration':
+				case 'dateTime':
+				case 'time':
+				case 'date':
+				case 'gYearMonth':
+				case 'gYear':
+				case 'gMonthDay':
+				case 'gDay':
+				case 'gMonth':
+				case 'base64Binary':
+				case 'hexBinay':
+				case 'anyURI':
+				case 'QName':
+				case 'NOTATION':
+				case 'normalizedString':
+				case 'token':
+				case 'language':
+				case 'Name':
+				case 'NCName':
+				case 'ID':
+				case 'IDREF':
+				case 'IDREFS':
+				case 'ENTITY':
+				case 'ENTITIES':
+				case 'NMTOKEN':
+				case 'NMTOKENS':
+					raise new Error("Variables of type '${type}' are unsupported at the moment.");
+				default: {
+					object value = new RPCObject();
+					node.getChildren().each() using ( child ) {
+						value._variables[child.getElementName()] = SOAP.toValue(child);
+					};
+					return value;
+				}
+			}
+		}
+		else if( node.hasChildren() ) {
+			array value = [];
+			string itemType = ( node.hasAttribute('itemType') ? node.getAttributeByName('itemType') : 'string' );
+			itemType = Regexp.match('^(.*:)?(.*)$', itemType).capture(1); // Remove namespace prefix
+			node.getChildren().each() using ( child ) {
+				value[] = SOAP.toValue( child, itemType );
+			};
+			return value;
+		}
+		// Default is string
+		return node.getElementData();
+	}
+	
+	function fault( string code, string reason ) {
+		return .fault( code, '', reason );
+	}
+	function fault( string code, string subcode, string reason ) {
+		string message;
+		message += "<?xml version='1.0' ?>";
+		message += '<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope">';
+		message += '<env:Body>';
+		message += '<env:Fault>';
+		message += '<env:Code>';
+		message += "<env:Value>${code}</env:Value>";
+		message += (subcode ? "<env:Subcode><env:Value>${subcode}</env:Value></env:Subcode>" : '');
+		message += '</env:Code>';
+		message += "<env:Reason><env:Text xml:lang=\"en-US\">${reason}</env:Text></env:Reason>";
+		message += '</env:Fault>';
+		message += '</env:Body>';
+		message += '</env:Envelope>';
+		return message;
+	}
+	
+	class Envelope {	
+		array variables;
+		
+		constructor( string message ) {
+			object tree = new XML.TreeParser();
+			tree.keepBlanks(false);
+			monitor {
+				tree.parseChunk(message);
+			} handle {
+				raise new Error("Parse error: ${err.str} [message: ${message}]");
+			} else {
+				.variables = .walkEnvelopeNode(tree.getDocumentElement());
+				if( .variables.keyExists('error') ) {
+					raise new Error('Error while processing message: ' +.variables['error']['messages'].join(', ') + " [message: ${message}]");
+				} else if( .variables['body'].keyExists('fault') ) {
+					string code = .variables['body']['fault']['code'];
+					string subcode;
+					if( .variables['body']['fault'].keyExists('subcode') ) {
+						subcode = .variables['body']['fault']['subcode'];
+					}
+					raise new Error("Message Body contained Fault: [Code: ${code}]" + (subcode ? " [SubCode: ${subcode}]." : '.'));
+				}
+			}
+		}
+		
+		function walkEnvelopeNode( object envelopeNode ) {
+			array result = [];
+			array error = [];
+			
+			if( not envelopeNode.getElementName() == 'Envelope' ) {
+				error[] = "Document element name was not 'Envelope'";
+			} else {
+				object headerNode = envelopeNode.elementByName('Header');
+				object bodyNode = envelopeNode.elementByName('Body');
+				
+				if( headerNode ) {
+					array header = .walkHeaderNode(headerNode);
+					if( header.keyExists('error') ) {
+						error = error.append(header['error']);
+					}
+					result['header'] = header;
+				}
+				
+				if( bodyNode ) {
+					array body = .walkBodyNode(bodyNode);
+					if( body.keyExists('error') ) {
+						error = error.append(body['error']);
+					}
+					result['body'] = body;
+				} else {
+					error[] = "Element 'Envelope' did not contain a 'Body' element";
+				}
+			}
+			
+			if( error ) {
+				result['error'] = [];
+				result['error']['messages'] = error;
+			}
+			
+			return result;
+		}
+		
+		function walkHeaderNode( object node ) {
+			array result;
+			return result;
+		}
+		
+		function walkBodyNode( object bodyNode ) {
+			array result = [];
+			array error = [];
+			
+			object childNode = bodyNode.getFirstChild();
+			
+			if( childNode ) {
+				if( childNode.getElementName() == 'Fault' ) {
+					array fault = .walkFaultNode(childNode);
+					if( fault.keyExists('error') ) {
+						error = error.append(fault['error']);
+					}
+					result['fault'] = fault;
+				} else {
+					object resultNode = childNode.elementByName('result');
+					
+					if( resultNode ) {
+						string returnNodeName = resultNode.getElementData();
+						object returnNode = childNode.elementByName(returnNodeName);
+						
+						if( returnNode ) {
+							result['return-value'] = SOAP.toValue(returnNode);
+						} else {
+							error[] = "Could not find element '${returnNodeName}' in 'Body' element";
+						}
+					}
+					else {
+						array parameters = [];
+						childNode.getChildren().each() using ( paramNode ) {
+							parameters[paramNode.getElementName()] = SOAP.toValue(paramNode);
+						};
+						result['procedure-name'] = childNode.getElementName();
+						result['procedure-parameters'] = parameters;
+					}
+				}
+			} else {
+				error[] = "Element 'Body' did not contain any children";
+			}
+			
+			if( error ) {
+				result['error'] = error;
+			}
+			
+			return result;
+		}
+		
+		function walkFaultNode( object faultNode ) {
+			array result = [];
+			array error = [];
+			
+			object codeNode = faultNode.elementByName('Code');
+			object reasonNode = faultNode.elementByName('Reason');
+			
+			if( codeNode ) {
+				object valueNode = codeNode.elementByName('Value');
+				object subcodeNode = codeNode.elementByName('Subcode');
+				
+				if( valueNode ) {
+					result['code'] = Regexp.match('^(.*:)?(.*)$', valueNode.getElementData()).capture(1);
+				} else {
+					error[] = "Element 'Code' did not contain a 'Value' element";
+				}
+				
+				if( subcodeNode ) {
+					valueNode = subcodeNode.elementByName('Value');
+					if( valueNode ) {
+						result['subcode'] = Regexp.match('^(.*:)?(.*)$', valueNode.getElementData()).capture(1);
+					} else {
+						error[] = "Element 'Subcode' did not contain a 'Value' element";
+					}
+				}
+			} else {			message += '<env:Body>';
+				error[] = "Element 'Fault' did not contain a 'Code' element";
+			}
+			
+			if( reasonNode ) {
+				array texts = [];
+				reasonNode.elementsByName('Text').each() using ( textNode ) {
+					if( textNode.hasAttribute('lang') ) {
+						texts[textNode.getAttributeByName('lang')] = textNode.getElementData();
+					}
+				};
+				if( texts ) {
+					result['text'] = texts;
+				}
+			}
+			
+			if( error ) {
+				result['error'] = error;
+			}
+			
+			return result;
+		}
+		
+		function returnValue() {
+			if( .variables.keyExists('body') and .variables['body'].keyExists('return-value') )
+				return .variables['body']['return-value'];
+		}
+		
+		function procedureName() {
+			if( .variables.keyExists('body') and .variables['body'].keyExists('procedure-name') )
+				return .variables['body']['procedure-name'];
+		}
+
+		function procedureParameters() {
+			if( .variables.keyExists('body') and .variables['body'].keyExists('procedure-parameters') )
+				return .variables['body']['procedure-parameters'];
+			return [];
+		}
+	}
+	
+	namespace RPC {
+		function readResponse( object response ) {
+			object envelope;
+			// tobias: For debugging, remove when committing to cvs
+			Console.println(response.body());
+			envelope = new SOAP.Envelope(response.body());
+			return envelope.returnValue();
+		}
+		
+		function sendRequest( string url, string content ) {
+			object http = Network.HTTP.post(url);
+			http.payload(content);
+			return .readResponse(http.run());
+		}
+		
+		function invoke( string url, string f, array parameters ) {
+			string message;
+			
+			message += "<?xml version='1.0' ?>";
+			message += '<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"';
+			message += '              xmlns:rpc="http://www.w3.org/2003/05/soap-rpc"';
+			message += '              xmlns:xsd="http://www.w3.org/2001/XMLSchema"';
+			message += '              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">';
+			message += '<env:Header>';
+			message += '</env:Header>';
+			message += '<env:Body>';
+			message += "<${f} xmlns:enc=\"http://www.w3.org/2003/05/soap-encoding\">";
+			
+			parameters.map() using ( name, value ) {
+				message += SOAP.toSOAP( name, value );
+			};
+			
+			message += "</${f}>";
+			message += '</env:Body>';
+			message += '</env:Envelope>';
+			
+			// tobias: For debugging, remove when committing to cvs
+			Console.println("\n\n" + message + "\n");
+			
+			return .sendRequest( url, message );
+		}
+		
+		function response( string f, void value ) {
+			string message;
+			
+			message += "<?xml version='1.0' ?>";
+			message += '<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"';
+			message += '              xmlns:rpc="http://www.w3.org/2003/05/soap-rpc"';
+			message += '              xmlns:xsd="http://www.w3.org/2001/XMLSchema"';
+			message += '              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">';
+			message += '<env:Body>';
+			message += "<${f}Response xmlns:enc=\"http://www.w3.org/2003/05/soap-encoding\">";
+			
+			if( not (value isa void) ) {
+				message += '<rpc:result>return</rpc:result>';
+				message += SOAP.toSOAP('return', value);
+			}
+			
+			message += "</${f}Response>";
+			message += '</env:Body>';
+			message += '</env:Envelope>';
+			
+			return message;
+		}
+	}
+}
+/*
+namespace WSDL {
+	function create( string name ) {
+		object file = new WSDL.File(name);
+		if( recipient() ) {
+			deliver(file);
+		}
+		return file;
+	}
+	
+	class File {
+		string name;
+		array complexTypes;
+		array messages;
+		array portTypes;
+		
+		constructor( string name ) {
+			.name = name;
+		}
+		
+		function addComplexType( string name ) {
+			object complexType = new WSDL.ComplexType( name );
+			if( recipient() ) {
+				deliver(complexType);
+			}
+			return complexType;
+		}
+		
+		function addMessage( string name ) {
+			object message = new WSDL.Message(name);
+			if( recipient() ) {
+				deliver(message);
+			}
+			return message;
+		}
+		
+		function addPortType( string name ) {
+			object portType = new WSDL.PortType(name);
+			if( recipient() {
+				deliver(portType);
+			}
+			return portType;
+		}
+		
+		function toString {
+			
+		}
+	}
+	
+	class ComplexType {
+	}
+	
+	class Message {
+		string name;
+		array parts;
+		
+		constructor( name ) {
+			.name = name;
+		}
+		
+		function addPart( string name, string type ) {
+			object part = new WSDL.Part( name, type );
+			parts[] = part;
+		}
+		
+		function toString {
+			string output = " <message name=\"${.name}\">\n";
+			.parts.each() using ( part ) {
+				output += part.toString();
+			};
+			output += " </message>\n";
+			return output;
+		}
+	}
+	
+	class Part {
+		string name;
+		string type;
+		
+		constructor( string name, string type ) {
+			object match = Regexp.match('^(.*:)?(.*)$', type).capture(1); 
+			string type = match.capture(1);
+			string hint = match.catpure(0);
+			.name = name;
+			switch( type ) {
+				case 'string':
+					.type = 'xsd:string';
+					break;
+				case 'number':
+					.type = 'xsd:long';
+					break;
+				case 'boolean':
+					.type = 'xsd:boolean';
+					break;
+				case 'array':
+					.type = "typens:${hint}Array";
+				default:
+					.type = type;
+			}
+		}
+		
+		function toString {
+			return "  <part name=\"${.name}\" type=\"${.type}\" />\n";
+		}
+	}
+	
+	class PortType {
+	}
+}
+*/

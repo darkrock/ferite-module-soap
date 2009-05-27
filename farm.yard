@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<yard name="SOAP">
+	<phase id="install">
+		<copy file="SOAP.feh" target="$(FeriteModuleSourceDir)" />
+	</phase>
+</yard>
