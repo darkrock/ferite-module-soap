@@ -195,7 +195,7 @@ namespace SOAP {
 				}
 			}
 		}
-		else if( node.hasChildren() ) {
+		else if( node.hasChildren() or node.hasAttribute('arraySize') ) {
 			array value = [];
 			string itemType = ( node.hasAttribute('itemType') ? node.getAttributeByName('itemType') : 'string' );
 			itemType = Regexp.match('^(.*:)?(.*)$', itemType).capture(1); // Remove namespace prefix
@@ -407,10 +407,14 @@ namespace SOAP {
 	}
 	
 	namespace RPC {
+		string url;
+		
+		function setDefaults( string url ) {
+			.url = url;
+		}
+		
 		function readResponse( object response ) {
 			object envelope;
-			// tobias: For debugging, remove when committing to cvs
-			Console.println(response.body());
 			envelope = new SOAP.Envelope(response.body());
 			return envelope.returnValue();
 		}
@@ -442,10 +446,11 @@ namespace SOAP {
 			message += '</env:Body>';
 			message += '</env:Envelope>';
 			
-			// tobias: For debugging, remove when committing to cvs
-			Console.println("\n\n" + message + "\n");
-			
 			return .sendRequest( url, message );
+		}
+		
+		function invoke( string f, array parameters ) {
+			return .invoke(.url, f, parameters);
 		}
 		
 		function response( string f, void value ) {
