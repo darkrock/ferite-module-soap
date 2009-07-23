@@ -2,7 +2,7 @@
 <yard name="soap">
 
 	<property id="name" value="ferite-soap" />
-	<property id="version" value="1.0" />
+	<property id="version" value="3.1" />
 	
 	<collection id="soap">
 		<property type="prefix" value="$(FeriteModuleSourceDir)" />  
