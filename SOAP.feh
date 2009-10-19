@@ -74,6 +74,7 @@ class modifies Obj {
 	}
 	
 	function toSOAP( array attributes ) {
+		object wrapper = new Object(self);
 		return attributes.join('') using ( name ) {
 			return SOAP.toSOAP( name, wrapper.getVariable(name) );
 		};

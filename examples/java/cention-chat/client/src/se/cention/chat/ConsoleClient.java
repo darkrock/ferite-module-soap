@@ -2,18 +2,20 @@ package se.cention.chat;
 
 public class ConsoleClient {
 	private CentionChatServiceStub stub;
-	private int systemgroup;
+	private int area;
 	private int session;
+	private boolean active;
 	private int lastReceivedMessageTimestamp;
 	
-	public ConsoleClient( int g, String name, String email, String question ) throws Exception {
-		systemgroup = g;
+	public ConsoleClient( int a, String name, String email, String question ) throws Exception {
+		area = a;
 		stub = new CentionChatServiceStub("http://localhost/webframework/Skeleton/chat/interface/-/RPC/");
 		
 		CentionChatServiceStub.CentionChatUpdate update = createChat(name, email, question);
 		
 		if (update.getActive()) {
 			session = update.getSession();
+			active = true;
 			
 			printMessages(update.getMessages().getItem());
 			
@@ -24,8 +26,10 @@ public class ConsoleClient {
 							sleep(10);
 							CentionChatServiceStub.CentionChatUpdate update = getUpdate();
 							printMessages(update.getMessages().getItem());
+							active = update.getActive();
 						}
 					} catch( Exception e ) {
+						e.printStackTrace();
 					}
 				}
 			};
@@ -35,10 +39,13 @@ public class ConsoleClient {
 			java.io.Console console = System.console();
 			String line;
 			
-			while (true) {
+			while (active) {
 				line = console.readLine("> ");
 				if( line.equals("/quit") ) {
 					thread.stop();
+					break;
+				}
+				if (! active) {
 					break;
 				}
 				thread.suspend();
@@ -46,13 +53,17 @@ public class ConsoleClient {
 				printMessages(u.getMessages().getItem());
 				thread.resume();
 			}
+			System.out.println("The chat session has ended.");
+			thread.stop();
+		} else {
+			System.out.println("No agents are available. Please try again later.");
 		}
 	}
 	
 	private void printMessages( CentionChatServiceStub.CentionChatMessage[] messages ) {
 		java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("hh:mm");
 		
-		for (int i = 0; i < messages.length; i++) {
+		for (int i = 0; messages != null && i < messages.length; i++) {
 			CentionChatServiceStub.CentionChatMessage message = messages[i];
 			java.util.Date date = new java.util.Date(message.getTimestamp());
 			
@@ -66,7 +77,7 @@ public class ConsoleClient {
 	
 	private CentionChatServiceStub.CentionChatUpdate createChat(String name, String email, String question) throws Exception {
 		CentionChatServiceStub.Create request = new CentionChatServiceStub.Create();
-		request.setSystemgroup_id(systemgroup);
+		request.setArea_id(area);
 		request.setName(name);
 		request.setEmail(email);
 		request.setQuestion(question);

@@ -4,6 +4,12 @@
 	
 	<types>
 		<xsd:schema xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:CentionChat">
+
+			<xsd:complexType name="CentionChatSession">
+				<xsd:all>
+					<xsd:element name="messages" type="typens:CentionChatMessageArray" />
+				</xsd:all>
+			</xsd:complexType>
 			
 			<xsd:complexType name="CentionChatMessage">
 				<xsd:all>
@@ -14,6 +20,12 @@
 			</xsd:complexType>
 			
 			<xsd:import namespace="http://schemas.xmlsoap.org/soap/encoding/" />
+			
+			<xsd:complexType name="CentionChatSessionArray">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" name="item" nillable="true" type="typens:CentionChatSession" />
+				</xsd:sequence>
+			</xsd:complexType>
 			
 			<xsd:complexType name="CentionChatMessageArray">
 				<xsd:sequence>
@@ -33,7 +45,7 @@
 	</types>
 	
 	<message name="agentsAvailable">
-		<part name="systemgroup_id" type="xsd:int" />
+		<part name="area_id" type="xsd:int" />
 	</message>
 	
 	<message name="agentsAvailableResponse">
@@ -41,7 +53,7 @@
 	</message>
 	
 	<message name="create">
-		<part name="systemgroup_id" type="xsd:int" />
+		<part name="area_id" type="xsd:int" />
 		<part name="name" type="xsd:string" />
 		<part name="email" type="xsd:string" />
 		<part name="question" type="xsd:string" />
@@ -69,6 +81,15 @@
 	<message name="getUpdateResponse">
 		<part name="return" type="typens:CentionChatUpdate" />
 	</message>
+
+	<message name="getHistory">
+		<part name="timestamp_from" type="xsd:int" />
+		<part name="timestamp_to" type="xsd:int" />
+	</message>
+	
+	<message name="getHistoryResponse">
+		<part name="return" type="typens:CentionChatSessionArray" />
+	</message>
 	
 	<portType name="CentionChatPort">
 		
@@ -90,6 +111,11 @@
 		<operation name="getUpdate">
 			<input message="typens:getUpdate" />
 			<output message="typens:getUpdateResponse" />
+		</operation>
+
+		<operation name="getHistory">
+			<input message="typens:getHistory" />
+			<output message="typens:getHistoryResponse" />
 		</operation>
 		
 	</portType>
@@ -136,11 +162,21 @@
 				<soap:body use="encoded" namespace="urn:CentionChat" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" />
 			</output>
 		</operation>
+
+		<operation name="getHistory">
+			<soap:operation soapAction="CentionChatAction" />
+			<input>
+				<soap:body use="encoded" namespace="urn:CentionChat" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" />
+			</input>
+			<output>
+				<soap:body use="encoded" namespace="urn:CentionChat" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" />
+			</output>
+		</operation>
 	</binding>
 	
 	<service name="CentionChatService">
 		<port name="CentionChatPort" binding="typens:CentionChatBinding">
-			<soap:address location="http://localhost/webframework/Skeleton/chat/interface/-/RPC" />
+			<soap:address location="http://localhost/webframework/Cention/chat/interface/-/RPC" />
 		</port>
   </service>
   
