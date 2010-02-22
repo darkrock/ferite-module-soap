@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<definitions name="CentionLibraryDeprecated" targetNamespace="urn:CentionLibraryDeprecated" xmlns:typens="urn:CentionLibraryDeprecated" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:soapenc="http://www.w3.org/2003/05/soap-encoding/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns="http://schemas.xmlsoap.org/wsdl/">
+	
+	<types>
+		<xsd:schema xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:CentionLibraryDeprecated">
+
+			<xsd:complexType name="FAQCategory">
+				<xsd:all>
+					<xsd:element name="idCategories" type="xsd:int" />
+					<xsd:elemett name="name" type="xsd:string" />
+				</xsd:all>
+			</xsd:complexType>
+			
+			<xsd:complexType name="FAQQuestion">
+				<xsd:all>
+					<xsd:element name="idQuestions" type="xsd:int" />
+					<xsd:element name="question" type="xsd:string" />
+					<xsd:element name="answer" type="xsd:string" />
+				</xsd:all>
+			</xsd:complexType>
+			
+			<xsd:import namespace="http://schemas.xmlsoap.org/soap/encoding/" />
+			
+			<xsd:complexType name="ArrayOf_FAQCategories">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" name="item" nillable="true" type="typens:FAQCategory" />
+				</xsd:sequence>
+			</xsd:complexType>
+			
+			<xsd:complexType name="ArrayOf_FAQQuestions">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" name="item" nillable="true" type="typens:FAQQuestion" />
+				</xsd:sequence>
+			</xsd:complexType>
+			
+		</xsd:schema>
+	</types>
+	
+	<message name="getCategories">
+		<part name="categoryID" type="xsd:int" />
+	</message>
+
+	<message name="getCategoriesResponse">
+		<part name="return" type="typens:ArrayOf_FAQCategories" />
+	</message>
+
+	<message name="getQuestions">
+		<part name="categoryID" type="xsd:int" />
+	</message>
+
+	<message name="getQuestionsResponse">
+		<part name="return" type="typens:ArrayOf_FAQQuestions" />
+	</message>
+
+	<message name="getQuestion">
+		<part name="questionID" type="xsd:int" />
+	</message>
+
+	<message name="getQuestionResponse">
+		<part name="return" type="typens:FAQQuestion" />
+	</message>	
+
+	<message name="doSearch">
+		<part name="categoryID" type="xsd:int" />
+		<part name="searchPhrase" type="xsd:string" />
+		<part name="option" type="xsd:string" />
+	</message>
+
+	<message name="doSearchResponse">
+		<part name="return" type="typens:ArrayOf_FAQQuestions" />
+	</message>
+
+	<message name="getTopList">
+		<part name="categoryID" type="xsd:int" />
+	</message>
+
+	<message name="getTopListResponse">
+		<part name="return" type="typens:ArrayOf_FAQQuestions" />
+	</message>
+	
+	<portType name="CentionLibraryDeprecatedPort">
+		
+		<operation name="getCategories">
+			<input message="typens:getCategories" />
+			<output message="typens:getCategoriesResponse" />
+		</operation>
+
+		<operation name="getQuestions">
+			<input message="typens:getQuestions" />
+			<output message="typens:getQuestionsResponse" />
+		</operation>
+
+		<operation name="getQuestion">
+			<input message="typens:getQuestion" />
+			<output message="typens:getQuestionResponse" />
+		</operation>
+
+		<operation name="doSearch">
+			<input message="typens:doSearch" />
+			<output message="typens:doSearchResponse" />
+		</operation>
+
+		<operation name="getTopList">
+			<input message="typens:getTopList" />
+			<output message="typens:getTopListResponse" />
+		</operation>
+		
+		
+	</portType>
+	
+	<binding name="CentionLibraryDeprecatedBinding" type="typens:CentionLibraryDeprecatedPort">
+		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http" />
+		
+		<operation name="getCategories">
+			<soap:operation soapAction="CentionLibraryDeprecatedAction" />
+			<input><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></input>
+			<output><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></output>
+		</operation>
+		
+		<operation name="getQuestions">
+			<soap:operation soapAction="CentionLibraryDeprecatedAction" />
+			<input><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></input>
+			<output><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></output>
+		</operation>
+
+		<operation name="getQuestion">
+			<soap:operation soapAction="CentionLibraryDeprecatedAction" />
+			<input><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></input>
+			<output><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></output>
+		</operation>
+
+		<operation name="doSearch">
+			<soap:operation soapAction="CentionLibraryDeprecatedAction" />
+			<input><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></input>
+			<output><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></output>
+		</operation>
+		
+		<operation name="getTopList">
+			<soap:operation soapAction="CentionLibraryDeprecatedAction" />
+			<input><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></input>
+			<output><soap:body use="encoded" namespace="urn:CentionLibraryDeprecated" encodingStyle="http://www.w3.org/2003/05/soap-encoding/" /></output>
+		</operation>
+	</binding>
+	
+	<service name="CentionLibraryDeprecatedService">
+		<port name="CentionLibraryDeprecatedPort" binding="typens:CentionLibraryDeprecatedBinding">
+			<soap:address location="http://localhost/webframework/Cention/library/deprecated-interface/-/RPC" />
+		</port>
+  </service>
+  
+</definitions>
