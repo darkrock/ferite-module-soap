@@ -96,7 +96,7 @@ class RPCObject {
 
 namespace SOAP {
 	function toSOAP( string name, string value ) {
-		return "<${name}>${value}</${name}>";
+		return "<${name}><![CDATA[${value}]]></${name}>";
 	}
 	function toSOAP( string name, number value ) {
 		return "<${name}>${value}</${name}>";
