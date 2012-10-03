@@ -76,7 +76,7 @@ class modifies Obj {
 	function toSOAP( array attributes ) {
 		object wrapper = new Object(self);
 		return attributes.join('') using ( name ) {
-			return SOAP.toSOAP( name, wrapper.getVariable(name) );
+			return SOAP.toSOAP( name, wrapper.getVariable(name), '' );
 		};
 	}
 	
@@ -95,29 +95,44 @@ class RPCObject {
 }
 
 namespace SOAP {
-	function toSOAP( string name, string value ) {
-		return "<${name}><![CDATA[${value}]]></${name}>";
+	function toSOAP( string name, string value, string ns ) {
+		if( ns ) {
+			ns = " xmlns=\"${ns}\"";
+		}
+		return "<${name}${ns}>${value}</${name}>";
 	}
-	function toSOAP( string name, number value ) {
-		return "<${name}>${value}</${name}>";
+	function toSOAP( string name, number value, string ns ) {
+		if( ns ) {
+			ns = " xmlns=\"${ns}\"";
+		}
+		return "<${name}${ns}>${value}</${name}>";
 	}
-	function toSOAP( string name, boolean value ) {
-		return "<${name}>${value}</${name}>";
+	function toSOAP( string name, boolean value, string ns ) {
+		if( ns ) {
+			ns = " xmlns=\"${ns}\"";
+		}
+		return "<${name}${ns}>${value}</${name}>";
 	}
-	function toSOAP( string name, array value ) {
+	function toSOAP( string name, array value, string ns ) {
 		string node;
-		node += "<${name}>";
+		if( ns ) {
+			ns = " xmlns=\"${ns}\"";
+		}
+		node += "<${name}${ns}>";
 		value.each() using ( item ) {
-			node += SOAP.toSOAP('item', item);
+			node += SOAP.toSOAP((item isa object ? (new Object(item)).className() : 'item'), item, '');
 		};
 		node += "</${name}>";
 		return node;
 	}
-	function toSOAP( string name, object value ) {
-		if( value ) {
-			return "<${name}>" + value.toSOAP() + "</${name}>";
+	function toSOAP( string name, object value, string ns ) {
+		if( ns ) {
+			ns = " xmlns=\"${ns}\"";
 		}
-		return "<${name} />";
+		if( value ) {
+			return "<${name}${ns}>" + value.toSOAP() + "</${name}>";
+		}
+		return "<${name}${ns} />";
 	}
 	function toValue( string type, object node ) {
 		object match = Regexp.match('([A-Za-z0-9]+)(<([A-Za-z0-9]+)>)?', type);
@@ -326,8 +341,13 @@ namespace SOAP {
 						error[] = "Element 'Subcode' did not contain a 'Value' element";
 					}
 				}
-			} else {			message += '<env:Body>';
-				error[] = "Element 'Fault' did not contain a 'Code' element";
+			} else {
+				codeNode = faultNode.elementByName('faultcode');
+				if( codeNode ) {
+					result['code'] = codeNode.getElementData();
+				} else {
+					error[] = "Element 'Fault' did not contain a 'Code' element";
+				}
 			}
 			
 			if( reasonNode ) {
@@ -339,6 +359,11 @@ namespace SOAP {
 				};
 				if( texts ) {
 					result['text'] = texts;
+				}
+			} else {
+				reasonNode = faultNode.elementByName('faultstring');
+				if( reasonNode ) {
+					result['text'] = reasonNode.getElementData();
 				}
 			}
 			
@@ -379,34 +404,40 @@ namespace SOAP {
 			return envelope.returnValue();
 		}
 		
-		function sendRequest( string url, string content, array body ) {
+		function sendRequest( string url, string action, string content, array body ) {
 			object http = Network.HTTP.post(url);
+			http.headersAdd('Content-Type', 'text/xml; charset=utf-8');
+			action and http.headersAdd('SOAPAction', action);
 			http.payload(content);
 			return .readResponse(http.run(), body);
 		}
 		
 		function invoke( string url, string f, array parameters, string result ) {
-			array body = [ "${f}Response" => [ "return" => result ] ];
+			return .invoke( url, '', f, parameters, result, 'return' );
+		}
+		function invoke( string url, string action, string f, array parameters, string result, string resultName ) {
+			array body = [ "${f}Response" => [ "${resultName}" => result ] ];
 			string message;
 			
 			message += "<?xml version='1.0' ?>";
 			message += '<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"';
 			message += ' xmlns:xsd="http://www.w3.org/2001/XMLSchema"';
 			message += ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">';
-			message += '<env:Header>';
-			message += '</env:Header>';
-			message += '<env:Body>';
+			message += '<soap:Header>';
+			message += '</soap:Header>';
+			message += '<soap:Body>';
 			message += "<${f} xmlns:enc=\"http://www.w3.org/2003/05/soap-encoding\">";
 			
-			parameters.map() using ( name, value ) {
-				message += SOAP.toSOAP( name, value );
+			parameters.eachWithIndex() using ( value, index ) {
+				string name = parameters.getName(index);
+				message += SOAP.toSOAP( name, value, '' );
 			};
 			
 			message += "</${f}>";
-			message += '</env:Body>';
-			message += '</env:Envelope>';
+			message += '</soap:Body>';
+			message += '</soap:Envelope>';
 			
-			return .sendRequest( url, message, body );
+			return .sendRequest( url, action, message, body );
 		}
 		
 		function invoke( string f, array parameters, string result ) {
@@ -424,7 +455,7 @@ namespace SOAP {
 			message += "<${f}Response xmlns:enc=\"http://www.w3.org/2003/05/soap-encoding\">";
 			
 			if( not (value isa void) ) {
-				message += SOAP.toSOAP('return', value);
+				message += SOAP.toSOAP('return', value, '');
 			}
 			
 			message += "</${f}Response>";
