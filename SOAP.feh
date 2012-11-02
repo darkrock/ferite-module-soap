@@ -99,7 +99,7 @@ namespace SOAP {
 		if( ns ) {
 			ns = " xmlns=\"${ns}\"";
 		}
-		return "<${name}${ns}>${value}</${name}>";
+		return "<${name}${ns}><![CDATA[${value}]]></${name}>";
 	}
 	function toSOAP( string name, number value, string ns ) {
 		if( ns ) {
@@ -423,9 +423,9 @@ namespace SOAP {
 			message += '<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"';
 			message += ' xmlns:xsd="http://www.w3.org/2001/XMLSchema"';
 			message += ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">';
-			message += '<soap:Header>';
-			message += '</soap:Header>';
-			message += '<soap:Body>';
+			message += '<env:Header>';
+			message += '</env:Header>';
+			message += '<env:Body>';
 			message += "<${f} xmlns:enc=\"http://www.w3.org/2003/05/soap-encoding\">";
 			
 			parameters.eachWithIndex() using ( value, index ) {
@@ -434,8 +434,8 @@ namespace SOAP {
 			};
 			
 			message += "</${f}>";
-			message += '</soap:Body>';
-			message += '</soap:Envelope>';
+			message += '</env:Body>';
+			message += '</env:Envelope>';
 			
 			return .sendRequest( url, action, message, body );
 		}
