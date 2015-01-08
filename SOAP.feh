@@ -92,6 +92,14 @@ class RPCObject {
 	function attribute_missing( string name ) {
 		return ._variables[name];
 	}
+
+	function toString() {
+		array output;
+		._variables.eachWithIndex() using ( value, index ) {
+			output[] = ._variables.getName(index) + ': ' + value;
+		};
+		return output.join(', ');
+	}
 }
 
 namespace SOAP {
